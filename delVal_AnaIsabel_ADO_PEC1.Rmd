@@ -1,0 +1,197 @@
+---
+title: 'Perinatal malnutrition in male mice influences gene expression in the next generation offspring: Potential role of epigenetics.'
+author: 'Ana del Val'
+subtitle: '`r params$subtitulo`'
+date: '`r format(Sys.Date(),"%e de %B, %Y")`' 
+# date: \today  (solo para pdf)
+output:
+  pdf_document:
+    keep_tex: true
+    number_sections: no
+    toc: true
+    toc_depth: 3
+  #html_document:
+   # toc: yes
+    #toc_depth: 3
+#nocite: | 
+ # @github
+ # @source
+params:
+  subtitulo: Análisis de datos ómicos
+bibliography: PEC1.bib
+geometry: margin=2cm
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+options(width=90)
+```
+``
+```{r include=FALSE}
+library("rmarkdown")
+library("knitr")
+library("yaml")
+library("tinytex")
+library("formatR")
+library("caTools")
+library("bitops")
+library("tools")
+library("utils")
+library("htmltools")
+library("evaluate")
+library("base64enc")
+library("jsonlite")
+library("rprojroot")
+library("mime")
+library("methods")
+library("stringr")
+library("animation")
+library("kableExtra")
+library("class")
+library("gmodels")
+library("caret")
+library("vcd")
+library("irr")
+library("ROCR")
+library("animation")
+library("BiocManager")
+library("Biostrings")
+#install.packages("BiocManager")
+#BiocManager::install("Biostrings")
+library("ggseqlogo")
+library("ggplot2")
+library("NLP")
+library("tm")
+library("SnowballC")
+library("RColorBrewer")
+library("wordcloud")
+library("e1071")
+library("neuralnet")
+library("nnet")
+library("RSNNS")
+library("rhandsontable")
+library("RODBC")
+library("shinydashboard")
+library("shiny")
+library("NeuralNetTools")
+library("caret")
+library("klaR")
+library("kernlab")
+library("shiny")
+library("dplyr")
+library("RSNNS")
+
+citation("Biobase")
+
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+#install.packages("ReactomePA")
+#BiocManager::install("ReactomePA")
+
+#citation("oligo")
+library("Biobase")
+library("GEOquery")
+library("devtools")
+library("roxygen2")
+#library("testhat")
+library("knitr")
+library("plier")
+library("rpart")
+library("simpleaffy")
+#library("tkWidgets")
+library("yeastCC")
+library("ygs98.db")
+library("ygs98cdf")
+library("ygs98probe")
+library("affy")
+library("affyPLM")
+library("affyQCReport")
+library("annotate")
+library("arrayQualityMetrics")
+library("Biobase")
+library("CMA")
+library("cMAP")
+library("e1071")
+library("gcrma")
+library("genefilter")
+library("GO.db")
+library("golubEsets")
+library("gplots")
+library("hgu95av2.db")
+library("KEGG.db")
+library("limma")
+library("multtest")
+library("oligo")
+library("ggrepel")
+library("pvca")
+library("mogene21sttranscriptcluster.db")
+library("ReactomePA")
+```
+
+The dataset for the exercise is available at the entry Series GSE55304 of the in Gene Expression Omnibus. It consists on determining whether patterns of gene expression in the first generation offspring are also present in the following generation offspring, via the paternal lineage. Paternal transmission of patterns of gene expression strongly suggest epigenetic inheritance of disease risk.
+
+Liver tissue was obtained from the follwing experimental groups: 
+
+- a) control male mice
+
+- b) adult male mice previously exposed to 50% caloric restriction in utero (IUGR)
+
+- c) adult male mice overfed during lactation (ON)
+
+- d) adult male offspring from control mice
+
+- e) adult male offspring from IUGR mice
+
+- f) adult male offspring from ON mice.
+
+RNA was extracted and processed for further hybridization on Affymetrix microarrays (GeneChip Mouse Genome 430 2.0 (Affymetrix, Santa Clara, CA)).
+
+## 0. Environment preparation, GitHub sync and data preparation
+
+This code is already sync with __*[github repository](https://github.com/AnadelVal/epigeneticsGSE55304)*__, which is public. 
+
+```{r include=FALSE}
+setwd(".")
+#getwd()
+dir.create("data") #create folder "data"
+dir.create("results") #create folder "results"
+dir.create("figures") #create folder "figures"
+```
+
+__*[This is the source reference](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE55304)*__.
+
+```{r}
+getGEOSuppFiles("GSE55304")
+#move .tar from downloads to directory. Put the correct file name:
+untar("GSE55304/GSE55304_RAW.tar", exdir="data")
+cels <- list.files("data/", pattern = "[gz]")
+length(cels)
+sapply(paste("data", cels, sep="/"), gunzip)
+cels
+#targets.csv ha sido creada a mano, 12 arrays con estas columnas: FileName, Group, Genotype, Treatment, ShortName
+targets <- read.csv2("./data/targets.csv", header = TRUE, sep = ";")
+targets
+```
+
+## 1. Read data
+
+### Read CEL files
+```{r}
+celFiles <- list.celfiles("./data", full.names = TRUE)
+```
+
+### Read targets
+```{r}
+my.targets <-read.AnnotatedDataFrame(file.path("./data","targets.csv"),     header = TRUE, row.names = 1, sep=";") 
+```
+
+
+
+### Read all
+```{r}
+rawData <- read.celfiles(celFiles, phenoData = my.targets)
+#expressionSet is designed to combine several different sources of information into a single convenient structure
+my.targets@data$ShortName->rownames(pData(rawData))
+colnames(rawData) <-rownames(pData(rawData)) 
+head(rawData)
+```

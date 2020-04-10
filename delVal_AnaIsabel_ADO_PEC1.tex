@@ -1,0 +1,164 @@
+\documentclass[]{article}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+\else % if luatex or xelatex
+  \ifxetex
+    \usepackage{mathspec}
+  \else
+    \usepackage{fontspec}
+  \fi
+  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+% use microtype if available
+\IfFileExists{microtype.sty}{%
+\usepackage[]{microtype}
+\UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\PassOptionsToPackage{hyphens}{url} % url is loaded by hyperref
+\usepackage[unicode=true]{hyperref}
+\hypersetup{
+            pdftitle={Perinatal malnutrition in male mice influences gene expression in the next generation offspring: Potential role of epigenetics.},
+            pdfauthor={Ana del Val},
+            pdfborder={0 0 0},
+            breaklinks=true}
+\urlstyle{same}  % don't use monospace font for urls
+\usepackage[margin=2cm]{geometry}
+\usepackage{graphicx,grffile}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\IfFileExists{parskip.sty}{%
+\usepackage{parskip}
+}{% else
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+}
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{0}
+% Redefines (sub)paragraphs to behave more like sections
+\ifx\paragraph\undefined\else
+\let\oldparagraph\paragraph
+\renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+\let\oldsubparagraph\subparagraph
+\renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+
+% set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+
+\usepackage{etoolbox}
+\makeatletter
+\providecommand{\subtitle}[1]{% add subtitle to \maketitle
+  \apptocmd{\@title}{\par {\large #1 \par}}{}{}
+}
+\makeatother
+
+\title{Perinatal malnutrition in male mice influences gene expression in the
+next generation offspring: Potential role of epigenetics.}
+\providecommand{\subtitle}[1]{}
+\subtitle{Análisis de datos ómicos}
+\author{Ana del Val}
+\date{9 de abril, 2020}
+
+\begin{document}
+\maketitle
+
+{
+\setcounter{tocdepth}{3}
+\tableofcontents
+}
+``
+
+The dataset for the exercise is available at the entry Series GSE55304
+of the in Gene Expression Omnibus. It consists on determining whether
+patterns of gene expression in the first generation offspring are also
+present in the following generation offspring, via the paternal lineage.
+Paternal transmission of patterns of gene expression strongly suggest
+epigenetic inheritance of disease risk.
+
+Liver tissue was obtained from the follwing experimental groups:
+
+\begin{itemize}
+\item
+  \begin{enumerate}
+  \def\labelenumi{\alph{enumi})}
+  \tightlist
+  \item
+    control male mice
+  \end{enumerate}
+\item
+  \begin{enumerate}
+  \def\labelenumi{\alph{enumi})}
+  \setcounter{enumi}{1}
+  \tightlist
+  \item
+    adult male mice previously exposed to 50\% caloric restriction in
+    utero (IUGR)
+  \end{enumerate}
+\item
+  \begin{enumerate}
+  \def\labelenumi{\alph{enumi})}
+  \setcounter{enumi}{2}
+  \tightlist
+  \item
+    adult male mice overfed during lactation (ON)
+  \end{enumerate}
+\item
+  \begin{enumerate}
+  \def\labelenumi{\alph{enumi})}
+  \setcounter{enumi}{3}
+  \tightlist
+  \item
+    adult male offspring from control mice
+  \end{enumerate}
+\item
+  \begin{enumerate}
+  \def\labelenumi{\alph{enumi})}
+  \setcounter{enumi}{4}
+  \tightlist
+  \item
+    adult male offspring from IUGR mice
+  \end{enumerate}
+\item
+  \begin{enumerate}
+  \def\labelenumi{\alph{enumi})}
+  \setcounter{enumi}{5}
+  \tightlist
+  \item
+    adult male offspring from ON mice.
+  \end{enumerate}
+\end{itemize}
+
+RNA was extracted and processed for further hybridization on Affymetrix
+microarrays (GeneChip Mouse Genome 430 2.0 (Affymetrix, Santa Clara,
+CA)).
+
+\subsection{0. Environment preparation, GitHub sync and data
+preparation}\label{environment-preparation-github-sync-and-data-preparation}
+
+This code is already sync with
+\textbf{\emph{\href{https://github.com/AnadelVal/epigeneticsGSE55304}{github
+repository}}}, which is public.
+
+\textbf{\emph{\href{https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE55304}{This
+is the source reference}}}.
+
+\end{document}
