@@ -1,0 +1,3 @@
+"ID","Description","GeneRatio","BgRatio","pvalue","p.adjust","qvalue","geneID","Count"
+"R-MMU-166786","Creation of C4 and C2 activators","2/19","14/8698",0.000405027946558015,0.0409078226023595,0.0324022357246412,"Fcna/C1qb",2
+"R-MMU-166663","Initial triggering of complement","2/19","20/8698",0.000839078825347783,0.042373480680063,0.0335631530139113,"Fcna/C1qb",2

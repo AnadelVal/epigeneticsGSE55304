@@ -1,0 +1,9 @@
+"ID","Description","GeneRatio","BgRatio","pvalue","p.adjust","qvalue","geneID","Count"
+"R-MMU-71291","Metabolism of amino acids and derivatives","2/5","200/8698",0.0050257698525165,0.0376355802358321,0.0108044727949757,"Adi1/Asns",2
+"R-MMU-2162123","Synthesis of Prostaglandins (PG) and Thromboxanes (TX)","1/5","12/8698",0.00688070797551199,0.0376355802358321,0.0108044727949757,"Ptgds",1
+"R-MMU-1614635","Sulfur amino acid metabolism","1/5","20/8698",0.0114467660674098,0.0376355802358321,0.0108044727949757,"Adi1",1
+"R-MMU-917977","Transferrin endocytosis and recycling","1/5","31/8698",0.0176976576334369,0.0376355802358321,0.0108044727949757,"Steap2",1
+"R-MMU-70614","Amino acid synthesis and interconversion (transamination)","1/5","32/8698",0.0182643487274523,0.0376355802358321,0.0108044727949757,"Asns",1
+"R-MMU-351202","Metabolism of polyamines","1/5","36/8698",0.0205284983104539,0.0376355802358321,0.0108044727949757,"Adi1",1
+"R-MMU-2142753","Arachidonic acid metabolism","1/5","56/8698",0.0317866720524702,0.0437066740721465,0.0125473705470277,"Ptgds",1
+"R-MMU-917937","Iron uptake and transport","1/5","56/8698",0.0317866720524702,0.0437066740721465,0.0125473705470277,"Steap2",1

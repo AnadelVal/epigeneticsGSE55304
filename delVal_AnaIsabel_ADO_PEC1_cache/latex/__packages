@@ -1,10 +1,4 @@
 base
-methods
-datasets
-utils
-grDevices
-graphics
-stats
 rmarkdown
 knitr
 yaml
@@ -12,7 +6,6 @@ tinytex
 formatR
 caTools
 bitops
-tools
 htmltools
 evaluate
 base64enc
@@ -27,16 +20,13 @@ gmodels
 lattice
 ggplot2
 caret
-grid
 vcd
 lpSolve
 irr
 gplots
 ROCR
 BiocManager
-parallel
 BiocGenerics
-stats4
 S4Vectors
 IRanges
 XVector
@@ -100,3 +90,7 @@ pvca
 org.Mm.eg.db
 mogene21sttranscriptcluster.db
 ReactomePA
+mouse4302.db
+RSQLite
+DBI
+pd.mouse430.2

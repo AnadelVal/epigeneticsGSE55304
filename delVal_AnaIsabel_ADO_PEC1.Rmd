@@ -1,6 +1,6 @@
 ---
 title: 'Perinatal malnutrition in male mice influences gene expression in the next generation offspring: Potential role of epigenetics.'
-author: 'Ana del Val'
+author: 'Ana Isabel del Val'
 subtitle: '`r params$subtitulo`'
 date: '`r format(Sys.Date(),"%e de %B, %Y")`' 
 # date: \today  (solo para pdf)
@@ -81,12 +81,11 @@ library("kernlab")
 library("shiny")
 library("dplyr")
 library("RSNNS")
-
 citation("Biobase")
 
 #if (!requireNamespace("BiocManager", quietly = TRUE))
-#install.packages("ReactomePA")
-#BiocManager::install("ReactomePA")
+#install.packages("mouse4302.db")
+#BiocManager::install("mouse4302.db")
 
 #citation("oligo")
 library("Biobase")
@@ -126,11 +125,24 @@ library("ggrepel")
 library("pvca")
 library("mogene21sttranscriptcluster.db")
 library("ReactomePA")
+library("mouse4302.db")
 ```
+## Abstract
+The dataset for the exercise is available at the entry Series GSE55304 of the in Gene Expression Omnibus. 
 
-The dataset for the exercise is available at the entry Series GSE55304 of the in Gene Expression Omnibus. It consists on determining whether patterns of gene expression in the first generation offspring are also present in the following generation offspring, via the paternal lineage. Paternal transmission of patterns of gene expression strongly suggest epigenetic inheritance of disease risk.
+This code is already sync with __*[github repository](https://github.com/AnadelVal/epigeneticsGSE55304)*__, which is public. 
 
-Liver tissue was obtained from the follwing experimental groups: 
+__*[This is the source reference](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE55304)*__.
+
+## Objectives
+
+It consists on determining whether patterns of gene expression in the first generation offspring are also present in the following generation offspring, via the paternal lineage. Paternal transmission of patterns of gene expression strongly suggest epigenetic inheritance of disease risk.
+
+## Materials and methods
+
+### Data source and experiment design
+
+Liver tissue was obtained from the following experimental groups: 
 
 - a) control male mice
 
@@ -146,52 +158,734 @@ Liver tissue was obtained from the follwing experimental groups:
 
 RNA was extracted and processed for further hybridization on Affymetrix microarrays (GeneChip Mouse Genome 430 2.0 (Affymetrix, Santa Clara, CA)).
 
-## 0. Environment preparation, GitHub sync and data preparation
-
-This code is already sync with __*[github repository](https://github.com/AnadelVal/epigeneticsGSE55304)*__, which is public. 
-
 ```{r include=FALSE}
 setwd(".")
-#getwd()
-dir.create("data") #create folder "data"
-dir.create("results") #create folder "results"
-dir.create("figures") #create folder "figures"
+
+dir.create("data") 
+dir.create("results") 
+dir.create("figures") 
+dir.create("figures/Init")
+dir.create("figures/Norm")
+dir.create("figures/Batch")
+dir.create("figures/Gene variability")
+dir.create("figures/Volcano")
+dir.create("figures/Venn")
+dir.create("figures/Heatmap")
 ```
 
-__*[This is the source reference](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE55304)*__.
 
-```{r}
+```{r include=FALSE}
 getGEOSuppFiles("GSE55304")
-#move .tar from downloads to directory. Put the correct file name:
+
 untar("GSE55304/GSE55304_RAW.tar", exdir="data")
 cels <- list.files("data/", pattern = "[gz]")
-length(cels)
 sapply(paste("data", cels, sep="/"), gunzip)
-cels
-#targets.csv ha sido creada a mano, 12 arrays con estas columnas: FileName, Group, Genotype, Treatment, ShortName
-targets <- read.csv2("./data/targets.csv", header = TRUE, sep = ";")
+targets <- read.csv2("targets.csv", header = TRUE, sep = ";")
+```
+
+Targets have been created manually and is composed by 5 groups, 3 arrays in each group.
+```{r}
 targets
 ```
 
-## 1. Read data
+### Pipeline followed
 
-### Read CEL files
-```{r}
+#### 1. Read data
+
+```{r include=FALSE}
 celFiles <- list.celfiles("./data", full.names = TRUE)
 ```
 
-### Read targets
-```{r}
-my.targets <-read.AnnotatedDataFrame(file.path("./data","targets.csv"),     header = TRUE, row.names = 1, sep=";") 
+```{r include=FALSE}
+my.targets <-read.AnnotatedDataFrame(file.path("targets.csv"), header = TRUE, row.names = 1, sep=";") 
 ```
 
-
-
-### Read all
-```{r}
+```{r include=FALSE}
 rawData <- read.celfiles(celFiles, phenoData = my.targets)
 #expressionSet is designed to combine several different sources of information into a single convenient structure
 my.targets@data$ShortName->rownames(pData(rawData))
 colnames(rawData) <-rownames(pData(rawData)) 
+```
+```{r}
 head(rawData)
 ```
+
+#### 2. Exploration
+
+##### Quality control of raw data
+The data have enough quality for normalization?
+If one array is above a certain threshold defined in the function it is marked with an asterisk as an outlier. When a certain array is marked three times it should be revised carefully.
+
+In our case, only 1 star is ticked for 3 arrays, so we don't worry about outliers.
+```{r include=FALSE}
+arrayQualityMetrics(rawData, file=file.path("./results", " .pdf"))
+```
+
+##### PCA
+```{r include=FALSE}
+plotPCA3 <- function (datos, labels, factor, title, scale,colores, size = 1.5, glineas = 0.25) {data <- prcomp(t(datos),scale=scale)
+# plot adjustments
+dataDf <- data.frame(data$x)
+Group <- factor
+loads <- round(data$sdev^2/sum(data$sdev^2)*100,1)
+# main plot
+p1 <- ggplot(dataDf,aes(x=PC1, y=PC2)) +
+theme_classic() +
+geom_hline(yintercept = 0, color = "gray70") +
+geom_vline(xintercept = 0, color = "gray70") +
+geom_point(aes(color = Group), alpha = 0.55, size = 3) +
+coord_cartesian(xlim = c(min(data$x[,1])-5,max(data$x[,1])+5)) +
+scale_fill_discrete(name = "Group")
+# avoiding labels superposition
+p1 + geom_text_repel(aes(y = PC2 + 0.25, label = labels),segment.size = 0.25, size = size) + 
+labs(x = c(paste("PC1",loads[1],"%")),y=c(paste("PC2",loads[2],"%"))) +  
+ggtitle(paste("Principal Component Analysis for: ",title,sep=" "))+ 
+theme(plot.title = element_text(hjust = 0.5)) +
+scale_color_manual(values=colores)
+}
+```
+
+5 colors are needed to represent this scatterplot of the first two principal components performed on the raw data.
+
+First component of the PCA accounts for 39.1% of the total variability of the samples, and as we can observe in the plot, this variability is mainly contributed by the sample generation, as offsprings are on the right and adults are on the left, except for the array AdultLact1.
+
+```{r}
+plotPCA3(exprs(rawData), labels = targets$ShortName, factor = targets$Group, 
+title="Raw data", scale = FALSE, size = 3, 
+colores = c("red", "blue", "green", "yellow", "orange"))
+```
+
+We save image to tiff file in figures folder.
+```{r include=FALSE}
+tiff("figures/Init/PCA_RawData.tiff", res = 200, width = 4.5, height = 4, units = 'in')
+plotPCA3(exprs(rawData), labels = targets$ShortName, factor = targets$Group, 
+title="Raw data", scale = FALSE, size = 2, 
+colores = c("red", "blue", "green", "yellow","orange"))
+dev.off()
+```
+
+With a boxplot we visualize the intensity distribution of the arrays. The group legend colors are different in boxplot and PCA, so let's have a deep look before interpretation.
+```{r}
+boxplot(rawData, cex.axis=0.5, las=2,  which="all", 
+col = c(rep("red", 3), rep("blue", 3), 
+        rep("green", 3), rep("yellow", 3), rep("orange", 3))
+,main="Distribution of raw intensity values")
+```
+```{r include=FALSE}
+tiff("figures/Init/Intensity_RawData.tiff", res = 200, width =8, height = 5, units = 'in')
+boxplot(rawData, cex.axis=0.5, las=2,  which="all", 
+col = c(rep("red", 3), rep("blue", 3), rep("green", 3), rep("yellow", 3), rep("orange", 3)),
+main="Distribution of raw intensity values")
+dev.off()
+```
+
+A light variation of intensity among arrays is observed, but this is the expected for raw data.
+
+##### Data normalization
+
+```{r}
+eset_rma <- rma(rawData)
+```
+
+##### Quality control of normalized data
+
+```{r include=FALSE}
+arrayQualityMetrics(eset_rma, outdir = file.path("./results", "QCDir.Norm"), force=TRUE)
+```
+After normalization, the array AdultLact1 has been moved to the left part of the scatterplot. 
+
+First component of the PCA accounts for 19.3% of the total variability. It separates samples by the generation, as offsprings are on the right and adults are on the left. After normalization, without exception.
+```{r}
+plotPCA3(exprs(eset_rma), labels = targets$ShortName, factor = targets$Group, 
+title="Normalized data", scale = FALSE, size = 3, 
+colores = c("red", "blue", "green", "yellow","orange"))
+```
+
+```{r include=FALSE}
+tiff("figures/Norm/PCA_RawData.tiff", res = 200, width = 4.5, height = 4, units = 'in')
+plotPCA3(exprs(eset_rma), labels = targets$ShortName, factor = targets$Group, 
+title="Normalized data", scale = FALSE, size = 3, 
+colores = c("red", "blue", "green", "yellow","orange"))
+dev.off()
+```
+
+```{r}
+boxplot(eset_rma, cex.axis=0.5, las=2,  which="all", 
+col = c(rep("red", 3), rep("blue", 3), rep("green", 3), rep("yellow", 3),rep("orange", 3)),
+main="Boxplot for arrays intensity: Normalized Data")
+```
+
+```{r include=FALSE}
+tiff("figures/Norm/Intensity_RawData.tiff", res = 200, width = 4.5, height = 4, units = 'in')
+boxplot(eset_rma, cex.axis=0.5, las=2,  which="all", 
+col = c(rep("red", 3), rep("blue", 3), rep("green", 3), rep("yellow", 3),rep("orange", 3)),
+main="Boxplot for arrays intensity: Normalized Data")
+dev.off()
+```
+
+##### Batch detection
+```{r include=FALSE}
+pData(eset_rma) <- targets
+pct_threshold <- 0.6
+batch.factors <- c("Genotype", "Treatment")
+pvcaObj <- pvcaBatchAssess (eset_rma, batch.factors, pct_threshold)
+```
+
+
+```{r}
+bp <- barplot(pvcaObj$dat, xlab = "Effects",
+ylab = "Weighted average proportion variance",
+ylim= c(0,1.1),col = c("mediumorchid"), las=2,
+main="PVCA estimation")
+
+axis(1, at = bp, labels = pvcaObj$label, cex.axis = 0.55, las=2)
+
+values = pvcaObj$dat
+
+new_values = round(values , 3)
+
+text(bp,pvcaObj$dat,labels = new_values, pos=3, cex = 0.5)
+```
+
+```{r include=FALSE}
+tiff("figures/Batch/pvca.tiff", res = 200, width = 4.5, height = 4, units = 'in')
+bp <- barplot(pvcaObj$dat, xlab = "Effects",
+ylab = "Weighted average proportion variance",
+ylim= c(0,1.1),col = c("mediumorchid"), las=2,
+main="PVCA estimation")
+
+axis(1, at = bp, labels = pvcaObj$label, cex.axis = 0.55, las=2)
+
+values = pvcaObj$dat
+
+new_values = round(values , 3)
+
+text(bp,pvcaObj$dat,labels = new_values, pos=3, cex = 0.5)
+dev.off()
+```
+
+##### Detecting most variable genes
+```{r}
+sds <- apply (exprs(eset_rma), 1, sd)
+sdsO<- sort(sds)
+plot(1:length(sdsO), sdsO, main="Distribution of variability for all genes",
+sub="Vertical lines represent 90% and 95% percentiles",
+xlab="Gene index (from least to most variable)", ylab="Standard deviation")
+abline(v=length(sds)*c(0.9,0.95))
+```
+
+Values of standard deviations allong all samples for all genes ordered from smallest to biggest
+
+```{r include=FALSE}
+tiff("figures/Gene variability/gene_variability.tiff", res = 200, width = 4.5, height = 4, units = 'in')
+plot(1:length(sdsO), sdsO, main="Distribution of variability for all genes",
+sub="Vertical lines represent 90% and 95% percentiles",
+xlab="Gene index (from least to most variable)", ylab="Standard deviation")
+abline(v=length(sds)*c(0.9,0.95))
+dev.off()
+```
+
+```{r include=FALSE}
+##### Know annotations package
+fun <- function(GDSDataobj){
+    fulltitle <- Meta(GDSDataobj)$title
+    title <- strsplit(fulltitle, "\\[|\\]")[[1]][2]
+    title <- paste0(gsub("_|-| ", "", tolower(title)), ".db")
+    title
+}
+```
+
+```{r include=FALSE}
+eset <- getGEO("GSE55304")[[1]]
+fun(getGEO(annotation(eset)))
+#GSE55304 > mouse4302.db". We have already installed this annotation package
+```
+
+##### Filter least variable genes
+
+```{r include=FALSE}
+annotation(eset_rma) <- "mouse4302.db"
+filtered <- nsFilter(eset_rma, 
+require.entrez = TRUE, remove.dupEntrez = TRUE,
+var.filter=TRUE, var.func=IQR, var.cutoff=0.75, 
+filterByQuantile=TRUE, feature.exclude = "^AFFX")
+```
+
+```{r}
+print(filtered$filter.log)
+```
+
+```{r include=FALSE}
+#eset_rma #45101
+eset_filtered <-filtered$eset
+eset_filtered #5139 features (genes) left
+```
+
+```{r include=FALSE}
+dim(exprs(eset_filtered))[1]
+```
+
+Before filtering, there were `r dim(exprs(eset_rma))[1]` genes.
+
+After filtering, there are `r dim(exprs(eset_filtered))[1]` genes left.
+
+##### Save normalized data
+
+We save data in results folder.
+```{r include=FALSE}
+write.csv(exprs(eset_rma), file="./results/normalized.Data.csv")
+write.csv(exprs(eset_filtered), file="./results/normalized.Filtered.Data.csv")
+save(eset_rma, eset_filtered, file="./results/normalized.Data.Rda")
+```
+
+#### 3. Define the experimental setup
+
+Compare gene expression between groups.
+
+The Linear Models for Microarrays method, implemented in the limma package Smyth (2005) is used to select differential expressed genes.
+
+##### Create the design matrix
+
+The first step for the analysis based on linear models is to create the design matrix. Basically it is a table that describes the allocation of each sample to a group or experimental condition. It has as many rows as samples and as many columns as groups (if only one factor is considered). Each row contains a one in the column of the group to which the sample belongs and a zero in the others.
+
+1 model of 1 factor with 5 levels defined in Targets>Groups > 5 columns.
+```{r}
+designMat<- model.matrix(~0+Group, pData(eset_filtered))
+colnames(designMat) <- c("BothControl", "AdultIUGR", "AdultLact", "OffIUGR","OffLact")
+```
+
+##### Defining comparisons with the Contrasts Matrix
+
+It consists of as many columns as comparisons and as many rows as groups (that is, as columns of the design matrix) -> (5rows by 3 columns).
+
+A comparison between groups - called “contrast” - is represented by a “1” and a “-1” in the rows of groups to compare and zeros in the rest. 
+
+3 comparisons > 3 columns in the contrast matrix.
+
+Build the contrast matrix that can be used to answer the following questions:
+
+- Compare the effect of IntraUterine Growth Restriction in offsprings.
+
+- Compare the effect of overfed during lactation in offsprings.
+
+- The interaction: the differences between the two previous effects in offsprings.
+
+There could be more comparisons to be made, but I have highlighted here which I consider the most interesting ones.
+
+```{r}
+cont.matrix <- makeContrasts (BothControlvsOffIUGR = BothControl-OffIUGR,
+                              BothControlvsOffLact = BothControl-OffLact,
+                              INT = OffIUGR - OffLact,levels=designMat)
+print(cont.matrix)
+```
+
+##### Model estimation and gene selection
+
+With LIMMA, once the design matrix and the contrasts have been defined, we can proceed to estimate the model, estimate the contrasts and perform the significance tests that will lead to the decision, for each gene and each comparison, if they can be considered differential expressed.
+
+The analysis provides the usual test statistics such as Fold-change t-moderated or adjusted p-values that are used to order the genes from more unless differential expressed.
+
+In order to control the percentage of false positives that may result from high number of contrasts made simultaneously the p-values are adjusted so that we have control over the false positive rate using the Benjamini and Hochberg method Benjamini and Hochberg (1995).
+
+```{r include=FALSE}
+fit<-lmFit(eset_filtered, designMat)
+fit.main<-contrasts.fit(fit, cont.matrix)
+fit.main<-eBayes(fit.main)
+class(fit.main)
+```
+
+topTable: for a given contrast a list of genes ordered from smallest to biggest p–value which can be considered to be most to least differential expressed.
+
+For Comparison 1:
+```{r}
+topTab_BothControlvsOffIUGR <- 
+  topTable(fit.main, 
+           number=nrow(fit.main),
+           coef="BothControlvsOffIUGR",
+           adjust="fdr") 
+head(topTab_BothControlvsOffIUGR)
+```
+
+For Comparison 2:
+```{r}
+topTab_BothControlvsOffLact <- 
+  topTable(fit.main, 
+           number=nrow(fit.main), 
+           coef="BothControlvsOffLact", 
+           adjust="fdr") 
+head(topTab_BothControlvsOffLact)
+```
+
+For Comparison 3:
+```{r}
+topTab_INT <- 
+  topTable(fit.main, 
+  number=nrow(fit.main), 
+  coef="INT", 
+  adjust="fdr") 
+head(topTab_INT)
+```
+
+First column of each topTable contains the manufacturer’s (Affymetrix) ID for each probeset. Next step is to guess which gene correspond to each Affymetrix ID. This process is called annotation.
+Gene Symbol, the Entrez Gene identifier or the Gene description.
+
+```{r include=FALSE}
+annotatedTopTable <- function(topTab, anotPackage)
+{
+topTab <- cbind(PROBEID=rownames(topTab), topTab)
+myProbes <- rownames(topTab)
+thePackage <- eval(parse(text = anotPackage))
+geneAnots <- select(thePackage, myProbes, c("SYMBOL", "ENTREZID", "GENENAME"))
+annotatedTopTab<- merge(x=geneAnots, y=topTab, by.x="PROBEID", by.y="PROBEID")
+return(annotatedTopTab)
+}
+```
+
+Annotation tables, one per comparison.
+
+```{r include=FALSE}
+topAnnotated_BothControlvsOffIUGR <- annotatedTopTable(topTab_BothControlvsOffIUGR, anotPackage="mouse4302.db")
+
+topAnnotated_BothControlvsOffLact <- annotatedTopTable(topTab_BothControlvsOffLact,
+anotPackage="mouse4302.db")
+ 
+topAnnotated_INT <- annotatedTopTable(topTab_INT,
+anotPackage="mouse4302.db")
+
+write.csv(topAnnotated_BothControlvsOffIUGR, file="./results/topAnnotated_BothControlvsOffIUGR.csv")
+
+write.csv(topAnnotated_BothControlvsOffLact, file="./results/topAnnotated_BothControlvsOffLact.csv")
+
+write.csv(topAnnotated_INT, file="./results/topAnnotated_INT.csv")
+```
+
+Let's see for the first comparison:
+```{r}
+short_BothControlvsOffIUGR <- head(topAnnotated_BothControlvsOffIUGR[1:5,1:4]) 
+short_BothControlvsOffIUGR
+```
+
+##### Visualizating differential expression
+
+The names of the top 4 genes are shown in blue in the figure.
+
+This is for BothControlvsOffIUGR comparison.
+
+```{r include=FALSE}
+geneSymbols <- select(mouse4302.db, rownames(fit.main), c("SYMBOL"))
+SYMBOLS<- geneSymbols$SYMBOL
+```
+
+```{r}
+volcanoplot(fit.main, coef=1, highlight=4, names=SYMBOLS, 
+main=paste("Differentially expressed genes", colnames(cont.matrix)[1], sep="\n"))
+abline(v=c(-1,1))
+```
+
+```{r include=FALSE}
+tiff("figures/Volcano/VolcanoPlotBothControlvsOffIUGR.tiff", res = 150, width = 5, height = 5, units = 'in')
+volcanoplot(fit.main, coef=1, highlight=4, names=SYMBOLS, 
+main=paste("Differentially expressed genes", colnames(cont.matrix)[1], sep="\n"))
+abline(v=c(-1,1))
+dev.off()
+```
+
+For second comparison BothControlvsOffLact:
+```{r}
+volcanoplot(fit.main, coef=2, highlight=4, names=SYMBOLS, 
+main=paste("Differentially expressed genes", colnames(cont.matrix)[2], sep="\n"))
+abline(v=c(-1,1))
+```
+
+```{r include=FALSE}
+tiff("figures/Volcano/VolcanoPlotBothControlvsOffLact.tiff", res = 150, width = 5, height = 5, units = 'in')
+volcanoplot(fit.main, coef=2, highlight=4, names=SYMBOLS, 
+main=paste("Differentially expressed genes", colnames(cont.matrix)[2], sep="\n"))
+abline(v=c(-1,1))
+dev.off()
+```
+
+For third comparison INT:
+```{r}
+volcanoplot(fit.main, coef=3, highlight=4, names=SYMBOLS, 
+main=paste("Differentially expressed genes", colnames(cont.matrix)[3], sep="\n"))
+abline(v=c(-1,1))
+```
+
+```{r include=FALSE}
+tiff("figures/Volcano/VolcanoPlotINT.tiff", res = 150, width = 5, height = 5, units = 'in')
+volcanoplot(fit.main, coef=3, highlight=4, names=SYMBOLS, 
+main=paste("Differentially expressed genes", colnames(cont.matrix)[3], sep="\n"))
+abline(v=c(-1,1))
+dev.off()
+```
+
+##### Multiple comparisons
+
+When one selects genes in several comparisons it is usually interesting to know which genes have been selected in each comparison. Sometimes biologically relevant genes will be those that are selected in one of them but not in others. In other occasions he interest will lie in genes that are selected in all comparisons.
+
+This object has as many columns as comparisons and as many rows as genes: 5139x3.
+```{r include=FALSE}
+res<-decideTests(fit.main, method="separate", adjust.method="fdr", p.value=0.1, lfc=1)
+```
+
+Per each gene and comparison a “+1” denotes significantly up-regulated (t-test values >0, FDR < selected cutoff), a “-1” significantly down-regulated (t-test values <0, FDR < selected cutoff) and a “0” non significant difference (FDR > selected cutoff).
+
+```{r}
+sum.res.rows<-apply(abs(res),1,sum)
+res.selected<-res[sum.res.rows!=0,] 
+print(summary(res))
+```
+
+This can be visualized in a Venn Diagram.
+
+```{r}
+vennDiagram (res.selected[,1:3], cex=0.9)
+title("Genes in common between the three comparisons\n Genes selected with FDR < 0.1 and logFC > 1")
+```
+
+
+```{r include=FALSE}
+tiff("figures/Venn/VennPlot.tiff", res = 150, width = 5.5, height = 5.5, units = 'in')
+vennDiagram (res.selected[,1:3], cex=0.9)
+title("Genes in common between the three comparisons\n Genes selected with FDR < 0.1 and logFC > 1")
+dev.off()
+```
+Venn diagram showing the genes in common between the three comparisons performed.
+
+#### 4. Expression profiles visualization: Heatmaps
+
+Genes that have been selected as differential expressed may be visualized using a heatmap. These plots use color palettes to highlight distinct values –here positive (up-regulation) or negative (down-regulation) significantly differential expressions.
+
+Heatmaps can be used to visualize the expression values of differential expressed genes with no specific order, but it is usually preferred to plot them doing a hierarchical clustering on genes (rows) or columns(samples) in order to find groups of genes with common patterns of variation which can eventually be associated to the different groups being compared.
+
+A common option is to select the gens that have been selected in the previous steps, that is the genes that have been called differential expressed in at least one comparison.
+
+```{r include=FALSE}
+probesInHeatmap <- rownames(res.selected)
+HMdata <- exprs(eset_filtered)[rownames(exprs(eset_filtered)) %in% probesInHeatmap,]
+
+geneSymbols <- select(mouse4302.db, rownames(HMdata), c("SYMBOL"))
+SYMBOLS<- geneSymbols$SYMBOL
+rownames(HMdata) <- SYMBOLS
+write.csv(HMdata, file = file.path("./results/data4Heatmap.csv"))
+```
+
+(FDR < 0.1 and logFC > 1)
+```{r}
+my_palette <- colorRampPalette(c("blue", "red"))(n = 299)
+ 
+heatmap.2(HMdata,
+Rowv = FALSE,
+Colv = FALSE,
+main = "Differentially expressed genes \n FDR < 0,1, logFC >=1",
+scale = "row",
+col = my_palette,
+sepcolor = "white",
+sepwidth = c(0.05,0.05),
+cexRow = 0.5,
+cexCol = 0.9,
+key = TRUE,
+keysize = 1.5,
+density.info = "histogram",
+ColSideColors = c(rep("red",3),rep("blue",3), rep("green",3), rep("yellow",3),rep("orange",3)),
+tracecol = NULL,
+dendrogram = "none",
+srtCol = 30)
+```
+
+```{r include=FALSE}
+tiff("figures/Heatmap/Heatmap1.tiff", res = 150, width = 5.5, height = 5.5, units = 'in')
+heatmap.2(HMdata,
+Rowv = FALSE,
+Colv = FALSE,
+main = "Differentially expressed genes \n FDR < 0,1, logFC >=1",
+scale = "row",
+col = my_palette,
+sepcolor = "white",
+sepwidth = c(0.05,0.05),
+cexRow = 0.5,
+cexCol = 0.9,
+key = TRUE,
+keysize = 1.5,
+density.info = "histogram",
+ColSideColors = c(rep("red",3),rep("blue",3), rep("green",3), rep("yellow",3),rep("orange",3)),
+tracecol = NULL,
+dendrogram = "none",
+srtCol = 30)
+dev.off()
+```
+
+Genes and samples are forced to group by row and column similarity respectively.
+
+```{r}
+heatmap.2(HMdata,
+Rowv = TRUE,
+Colv = TRUE,
+dendrogram="both",
+main = "Differentially expressed genes \n FDR < 0,1, logFC >=1",
+scale = "row",
+col = my_palette,
+sepcolor = "white",
+sepwidth = c(0.05,0.05),
+cexRow = 0.5,
+cexCol = 0.9,
+key = TRUE,
+keysize = 1.5,
+density.info = "histogram",
+ColSideColors = c(rep("red",3),rep("blue",3), rep("green",3), rep("yellow",3),rep("orange",3)),
+tracecol = NULL,
+srtCol = 30)
+```
+
+```{r include=FALSE}
+tiff("figures/Heatmap/Heatmap_grouped.tiff", res = 150, width = 5.5, height = 5.5, units = 'in')
+heatmap.2(HMdata,
+Rowv = TRUE,
+Colv = TRUE,
+dendrogram="both",
+main = "Differentially expressed genes \n FDR < 0,1, logFC >=1",
+scale = "row",
+col = my_palette,
+sepcolor = "white",
+sepwidth = c(0.05,0.05),
+cexRow = 0.5,
+cexCol = 0.9,
+key = TRUE,
+keysize = 1.5,
+density.info = "histogram",
+ColSideColors = c(rep("red",3),rep("blue",3), rep("green",3), rep("yellow",3),rep("orange",3)),
+tracecol = NULL,
+srtCol = 30)
+dev.off()
+```
+
+## Biological Significance of results
+Given a list of genes selected for being differential expressed between two conditions, the functions, biological processes or molecular pathways that characterize them appear on this list more frequently than among the rest of the genes analyzed.
+
+ReactomePA Bioconductor package. The analysis is done on the ReactomePA annotation database https://reactome.org/.
+
+Analyses of this type need a minimum number of genes to be reliable, preferably a few hundreds than a few dozens, so it is common to perform a selection less restrictive than with the previous steps. For instance an option is to include all genes with a non-stringent FDR cutoff, such as FDR < 0.15 without filtering by minimum “fold-change”).
+
+```{r include=FALSE}
+listOfTables <- list(BothControlvsOffIUGR = topTab_BothControlvsOffIUGR, 
+BothControlvsOffLact = topTab_BothControlvsOffLact, 
+INT = topTab_INT)
+
+listOfSelected <- list()
+for (i in 1:length(listOfTables)){
+# select the toptable
+topTab <- listOfTables[[i]]
+# select the genes to be included in the analysis
+whichGenes<-topTab["adj.P.Val"]<0.15
+selectedIDs <- rownames(topTab)[whichGenes]
+# convert the ID to Entrez
+EntrezIDs<- select(mouse4302.db, selectedIDs, c("ENTREZID"))
+EntrezIDs <- EntrezIDs$ENTREZID
+listOfSelected[[i]] <- EntrezIDs
+names(listOfSelected)[i] <- names(listOfTables)[i]
+}
+
+sapply(listOfSelected, length)
+```
+
+The analysis also requires to have the Entrez Identifiers for all genes analyzed. It is an open discussion if what one should use is “all genes analyzed” -that is genes that have been retained in the analysis and are part of the “topTable”- or all genes available. In this case we use the second option and define our universe to be all genes that have at least one annotation in the Gene Ontology.
+
+```{r include=FALSE}
+mapped_genes2GO <- mappedkeys(org.Mm.egGO)
+mapped_genes2KEGG <- mappedkeys(org.Mm.egPATH)
+mapped_genes <- union(mapped_genes2GO , mapped_genes2KEGG)
+```
+
+The Biological significance analysis will be applied to these lists:  "BothControlvsOffLact" "INT".
+
+```{r include=FALSE}
+library(ReactomePA)
+ 
+listOfData <- listOfSelected[2:3]
+comparisonsNames <- names(listOfData)
+universe <- mapped_genes
+ 
+for (i in 1:length(listOfData)){
+   genesIn <- listOfData[[i]]
+   comparison <- comparisonsNames[i]
+   enrich.result <- enrichPathway(gene = genesIn,
+                                  pvalueCutoff = 0.05,
+                                  readable = T,
+                                  pAdjustMethod = "BH",
+                                  organism = "mouse",
+                                  universe = universe)
+   
+   cat("##################################")
+   cat("\nComparison: ", comparison,"\n")
+   print(head(enrich.result))
+ 
+   if (length(rownames(enrich.result@result)) != 0) {
+   write.csv(as.data.frame(enrich.result), 
+              file =paste0("./results/","ReactomePA.Results.",comparison,".csv"),
+              row.names = FALSE)
+   
+   pdf(file=paste0("./results/","ReactomePABarplot.",comparison,".pdf"))
+     print(barplot(enrich.result, showCategory = 15, font.size = 4, 
+             title = paste0("Reactome Pathway Analysis for ", comparison,". Barplot")))
+   dev.off()
+   
+   pdf(file = paste0("./results/","ReactomePAcnetplot.",comparison,".pdf"))
+     print(cnetplot(enrich.result, categorySize = "geneNum", schowCategory = 15, 
+          vertex.label.cex = 0.75))
+   dev.off()
+   
+   }
+}
+```
+
+First rows and columns for Reactome results on INT.csv comparison:
+```{r}
+Tab.react <- read.csv2(file.path("./results/ReactomePA.Results.INT.csv"), sep = ",", header = TRUE, row.names = 1)
+
+Tab.react <- Tab.react[1:4, 1:4]
+knitr::kable(Tab.react, booktabs = TRUE, caption = "First rows and columns for Reactome results on INT.csv comparison")
+```
+This netwowrk figure shows the network produced from the genes selected in the comparison
+```{r}
+cnetplot(enrich.result, categorySize = "geneNum", schowCategory = 15, 
+vertex.label.cex = 0.75)
+```
+
+In comparison INT, 8 enriched pathways have been found, for example: Sulfur amino acid metabolism.
+
+The results obtained in the analysis of biological significance are:
+
+- a .csv file with a summary of all the enriched pathways and the associated statistics.
+
+- a bar plot with the best enriched pathways. Height of the bar plot is the number of genes of our analysis related with that pathway. Moreover, pathways are ordered by statistical significance.
+
+- a plot with a network of the enriched pathways and the relation among the genes included.
+
+```{r include=FALSE}
+### List of results files
+listOfFiles <- dir("./results/") 
+knitr::kable(
+listOfFiles, booktabs = TRUE,
+caption = 'List of files generated in the analysis',
+col.names="List_of_Files"
+)
+```
+
+## Discussion
+
+I have found a limitation in comparison BothControlvsOffIUGR. There was not enriched pathway found so Reactome results on this comparison was NULL.
+
+For future iterations of this study, we could think of other comparisons such as:
+
+- Compare the effect of IntraUterine Growth Restriction in adults.
+
+- Compare the interaction of IntraUterine Growth Restriction in adults and offsprings.
+
+- Compare the effect of overfed during lactation in adults.
+
+- Compare the interaction of overfed during lactation in adults and offsprings.
+
+## Apendix
+
+The code can be found in the Github repository, in .RMd file, where the reproducibility of the study is guaranteed.
