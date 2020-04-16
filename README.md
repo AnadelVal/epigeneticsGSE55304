@@ -13,3 +13,8 @@ If you prefer not to generate the study on your own, you can consult the study o
 - delVal_AnaIsabel_ADO_PEC1_PEC1.pdf
 
 
+The package "ReactomePA" allows the functions usage for specific organisms. In this case, mus musculus.
+
+Remember, regarding bibliography:
+bibliography: references.bib
+link-citations: yes
