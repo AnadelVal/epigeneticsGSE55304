@@ -14,6 +14,9 @@ If you prefer not to generate the study on your own, you can consult the study o
 
 
 The package "ReactomePA" allows the functions usage for specific organisms. In this case, mus musculus.
+Alternative: clusterProfiler
+
+knitr::purl ,, “eval=FALSE”.
 
 Remember, regarding bibliography:
 bibliography: references.bib
